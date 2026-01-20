@@ -9,10 +9,128 @@
 }
 
 @layer base {
+
+  /* ============================================
+     TEMA ESCURO (Dark Mode) - Padrão Original
+     ============================================ */
+  :root.dark {
+    /* Backgrounds - Múltiplos tons de preto/cinza escuro */
+    --bg-primary: #0a0a0a;
+    /* Fundo principal mais escuro */
+    --bg-secondary: #121212;
+    /* Cards e containers */
+    --bg-tertiary: #1a1a1c;
+    /* Inputs e elementos interativos */
+    --bg-elevated: #0f0f0f;
+    /* Modais e elementos elevados */
+    --bg-hover: #18181b;
+    /* Estado hover */
+
+    /* Borders - Bordas sutis */
+    --border-primary: rgba(161, 161, 170, 0.3);
+    --border-secondary: rgba(161, 161, 170, 0.1);
+
+    /* Text - Hierarquia de texto */
+    --text-primary: #ffffff;
+    --text-secondary: #a1a1aa;
+    --text-tertiary: #71717a;
+    --text-muted: #52525b;
+
+    /* Accent - Dourado Golden */
+    --accent-gold: #EAB308;
+    --accent-gold-hover: #CA8A04;
+    --accent-gold-light: rgba(234, 179, 8, 0.1);
+
+    /* Status Colors */
+    --success: #10b981;
+    --error: #ef4444;
+    --warning: #f59e0b;
+    --info: #3b82f6;
+  }
+
+  /* ============================================
+     TEMA CLARO (Light Mode) - Refinado
+     Tons suaves de off-white e cinza claro
+     ============================================ */
+  :root.light {
+    /* Backgrounds - Múltiplos tons de branco/cinza muito claro */
+    --bg-primary: #fafafa;
+    /* Fundo principal (não branco puro) */
+    --bg-secondary: #f5f5f5;
+    /* Cards e containers */
+    --bg-tertiary: #ececec;
+    /* Inputs e elementos interativos */
+    --bg-elevated: #ffffff;
+    /* Modais e elementos elevados (branco puro só aqui) */
+    --bg-hover: #f0f0f0;
+    /* Estado hover */
+
+    /* Borders - Bordas mais visíveis mas sutis */
+    --border-primary: rgba(0, 0, 0, 0.12);
+    --border-secondary: rgba(0, 0, 0, 0.06);
+
+    /* Text - Hierarquia de texto invertida */
+    --text-primary: #1a1a1a;
+    /* Texto principal (não preto puro) */
+    --text-secondary: #525252;
+    --text-tertiary: #737373;
+    --text-muted: #a3a3a3;
+
+    /* Accent - Dourado mais escuro para contraste */
+    --accent-gold: #d4a028;
+    --accent-gold-hover: #b8881a;
+    --accent-gold-light: rgba(212, 160, 40, 0.1);
+
+    /* Status Colors - Tons mais saturados para tema claro */
+    --success: #16a34a;
+    --error: #dc2626;
+    --warning: #ea580c;
+    --info: #2563eb;
+  }
+
+  /* ============================================
+     ESTILOS GLOBAIS
+     ============================================ */
   body {
-    /* Gradiente Radial conforme solicitado */
-    background: radial-gradient(circle, var(--color-dark-surface) 0%, var(--color-dark-bg) 100%);
-    color: #ffffff;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
     min-height: 100vh;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* Scrollbar customizada */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--border-primary);
+    border-radius: 3px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+  }
+
+  /* Animação de fade-in */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-in {
+    animation: fade-in 0.3s ease-out;
   }
 }

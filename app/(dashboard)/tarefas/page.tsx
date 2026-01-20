@@ -1,283 +1,477 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  IconPlus, 
-  IconAlertTriangle, 
-  IconCalendarEvent, 
-  IconUserUp, 
-  IconSend, 
-  IconMessage2, 
-  IconFlag,
-  IconCheck
-} from "@tabler/icons-react";
-import { motion, AnimatePresence } from "framer-motion";
+import {
+  IconX, IconCalendar, IconUser, IconFlag, IconCheck, IconPlus, IconTrash, IconMessage,
+  IconClock, IconEdit, IconSearch, IconFilter, IconChevronDown
+} from '@tabler/icons-react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Modal } from '@/components/ui/modal';
+import { Badge } from '@/components/ui/badge';
+import { TaskDetailsModal } from '@/components/TaskDetailsModal';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
-// --- Tipagens Básicas ---
-type TaskStatus = 'pendente' | 'em_andamento' | 'concluida';
-type Priority = 'baixa' | 'media' | 'alta' | 'urgente';
+// Tipos
+interface Comment {
+  id: string;
+  authorId: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
+}
 
 interface Task {
   id: string;
   title: string;
   description: string;
-  category: string;
-  status: TaskStatus;
-  priority: Priority;
-  deadline?: string;
-  isRequestedBySuperior?: boolean;
-  requestedBy?: string;
-  comments: number;
+  status: 'solicitada' | 'pendente' | 'em_andamento' | 'concluida';
+  priority: 'baixa' | 'media' | 'alta' | 'urgente';
+  createdBy: string;
+  assignedTo: string;
+  createdAt: string;
+  dueDate?: string;
+  completedAt?: string;
+  tags: string[];
+  comments: Comment[];
 }
 
-export default function TarefasPage() {
-  const [activeTab, setActiveTab] = useState<'board' | 'solicitar'>('board');
-  
-  // Mock de dados para visualização
-  const [tasks] = useState<Task[]>([
-    {
-      id: '1',
-      title: 'Revisar contrato Gold Partners',
-      description: 'Verificar cláusulas de rescisão e bônus de performance.',
-      category: 'Jurídico',
+// Dados Mock
+const mockTasks: Task[] = [
+  {
+    id: 't1',
+    title: 'Revisar propostas de novos leads',
+    description: 'Analisar as propostas enviadas aos leads desta semana e preparar feedback.',
+    status: 'pendente',
+    priority: 'alta',
+    createdBy: 'Ricardo Silva',
+    assignedTo: 'Pedro Guedes',
+    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+    tags: ['vendas', 'propostas'],
+    comments: [],
+  },
+  {
+    id: 't2',
+    title: 'Atualizar CRM com dados de janeiro',
+    description: 'Import all January sales data into the system.',
+    status: 'em_andamento',
+    priority: 'media',
+    createdBy: 'Pedro Guedes',
+    assignedTo: 'Ana Oliveira',
+    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    tags: ['dados', 'crm'],
+    comments: [
+      {
+        id: 'c1',
+        authorId: 'u1',
+        authorName: 'Ana Oliveira',
+        content: 'Já importei 60% dos dados, finalizando hoje.',
+        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      },
+    ],
+  },
+  {
+    id: 't3',
+    title: 'Preparar relatório mensal',
+    description: 'Compilar métricas e gerar relatório de performance de janeiro.',
+    status: 'solicitada',
+    priority: 'urgente',
+    createdBy: 'Gestão',
+    assignedTo: 'Pedro Guedes',
+    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
+    tags: ['relatório', 'gestão'],
+    comments: [],
+  },
+  {
+    id: 't4',
+    title: 'Follow-up com leads inativos',
+    description: 'Entrar em contato com leads que não responderam nos últimos 30 dias.',
+    status: 'concluida',
+    priority: 'baixa',
+    createdBy: 'Pedro Guedes',
+    assignedTo: 'Bruno Costa',
+    createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    completedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    tags: ['leads', 'follow-up'],
+    comments: [],
+  },
+];
+
+const statusColumns = {
+  solicitada: { title: 'Solicitadas', color: '#8b5cf6' },
+  pendente: { title: 'Pendentes', color: 'var(--text-secondary)' },
+  em_andamento: { title: 'Em Andamento', color: 'var(--accent-gold)' },
+  concluida: { title: 'Concluídas', color: '#10b981' },
+};
+
+const priorityColors = {
+  baixa: '#3b82f6',
+  media: '#f59e0b',
+  alta: '#ea580c',
+  urgente: '#ef4444',
+};
+
+export default function TasksPage() {
+  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
+  const [filterPriority, setFilterPriority] = useState<string[]>([]);
+
+  // Filtrar tarefas
+  const filteredTasks = tasks.filter((task) => {
+    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      task.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus.length === 0 || filterStatus.includes(task.status);
+    const matchesPriority = filterPriority.length === 0 || filterPriority.includes(task.priority);
+
+    return matchesSearch && matchesStatus && matchesPriority;
+  });
+
+  // Agrupar por status
+  const tasksByStatus = {
+    solicitada: filteredTasks.filter(t => t.status === 'solicitada'),
+    pendente: filteredTasks.filter(t => t.status === 'pendente'),
+    em_andamento: filteredTasks.filter(t => t.status === 'em_andamento'),
+    concluida: filteredTasks.filter(t => t.status === 'concluida'),
+  };
+
+  // Stats
+  const stats = {
+    total: tasks.length,
+    concluidas: tasks.filter(t => t.status === 'concluida').length,
+    emAndamento: tasks.filter(t => t.status === 'em_andamento').length,
+    atrasadas: tasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== 'concluida').length,
+  };
+
+  const handleDragEnd = (result: any) => {
+    const { source, destination, draggableId } = result;
+    if (!destination || source.droppableId === destination.droppableId) return;
+
+    const newStatus = destination.droppableId as Task['status'];
+    setTasks(tasks.map(t =>
+      t.id === draggableId
+        ? { ...t, status: newStatus, ...(newStatus === 'concluida' ? { completedAt: new Date().toISOString() } : {}) }
+        : t
+    ));
+  };
+
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task);
+    setIsDetailsOpen(true);
+  };
+
+  const handleUpdateTask = (updatedTask: Task) => {
+    setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
+    setSelectedTask(updatedTask);
+  };
+
+  const handleDeleteTask = (id: string) => {
+    setTasks(tasks.filter(t => t.id !== id));
+    setIsDetailsOpen(false);
+  };
+
+  const handleCompleteTask = (id: string) => {
+    setTasks(tasks.map(t =>
+      t.id === id
+        ? { ...t, status: 'concluida' as const, completedAt: new Date().toISOString() }
+        : t
+    ));
+  };
+
+  const handleCreateTask = (newTask: Partial<Task>) => {
+    const task: Task = {
+      id: `t${tasks.length + 1}`,
+      title: newTask.title || '',
+      description: newTask.description || '',
       status: 'pendente',
-      priority: 'urgente',
-      deadline: '2026-01-10',
-      isRequestedBySuperior: true,
-      requestedBy: 'Diretoria (Marcos)',
-      comments: 3
-    },
-    {
-      id: '2',
-      title: 'Follow-up Lead Instagram #99',
-      description: 'Cliente demonstrou interesse no pacote premium.',
-      category: 'Comercial',
-      status: 'em_andamento',
-      priority: 'media',
-      deadline: '2026-01-10',
-      comments: 0
-    },
-    {
-      id: '3',
-      title: 'Relatório Trimestral',
-      description: 'Consolidar dados de conversão do último trimestre.',
-      category: 'Admin',
-      status: 'pendente',
-      priority: 'alta',
-      deadline: '2026-01-08', // Atrasada
-      comments: 5
-    }
-  ]);
+      priority: newTask.priority || 'media',
+      createdBy: 'Pedro Guedes',
+      assignedTo: newTask.assignedTo || 'Pedro Guedes',
+      createdAt: new Date().toISOString(),
+      dueDate: newTask.dueDate,
+      tags: newTask.tags || [],
+      comments: [],
+    };
+    setTasks([...tasks, task]);
+    setIsCreateOpen(false);
+  };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
-      {/* HEADER DA PÁGINA */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Central de Tarefas</h1>
-          <p className="text-zinc-500 text-sm">Gerencie suas obrigações e solicitações de equipe.</p>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Gerenciamento de Tarefas</h1>
+          <p className="text-sm text-[var(--text-secondary)]">Organize e acompanhe suas tarefas</p>
         </div>
-        
-        <div className="flex gap-3">
-          <button 
-            onClick={() => setActiveTab('solicitar')}
-            className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm font-medium transition-all"
-          >
-            <IconSend size={18} />
-            Solicitar para Equipe
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#EAB308] hover:bg-[#CA8A04] text-black rounded-lg text-sm font-bold transition-all shadow-lg shadow-yellow-500/10">
-            <IconPlus size={18} />
-            Nova Tarefa
-          </button>
-        </div>
+        <button
+          onClick={() => setIsCreateOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-[var(--accent-gold)] hover:bg-[var(--accent-gold-hover)] text-black rounded-lg font-bold transition-all"
+        >
+          <IconPlus size={18} />
+          Nova Tarefa
+        </button>
       </div>
 
-      {/* MODAL / VIEW DE SOLICITAÇÃO (Simulado como aba) */}
-      {activeTab === 'solicitar' && (
-        <RequestTaskView onClose={() => setActiveTab('board')} />
-      )}
-
-      {/* QUADRO DE TAREFAS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-        
-        {/* COLUNA 1: PRIORIDADE / SUPERIOR */}
-        <TaskColumn 
-          title="Solicitações da Gestão" 
-          icon={<IconUserUp className="text-purple-400" />}
-          tasks={tasks.filter(t => t.isRequestedBySuperior)}
-          isPriority
-        />
-
-        {/* COLUNA 2: HOJE / EM DIA */}
-        <TaskColumn 
-          title="Tarefas de Hoje" 
-          icon={<IconCalendarEvent className="text-[#EAB308]" />}
-          tasks={tasks.filter(t => !t.isRequestedBySuperior && t.deadline === '2026-01-10')}
-        />
-
-        {/* COLUNA 3: ATRASADAS */}
-        <TaskColumn 
-          title="Atrasadas / Pendentes" 
-          icon={<IconAlertTriangle className="text-red-500" />}
-          tasks={tasks.filter(t => t.deadline && t.deadline < '2026-01-10')}
-        />
-
-      </div>
-    </div>
-  );
-}
-
-// --- SUB-COMPONENTES ---
-
-function TaskColumn({ title, icon, tasks, isPriority = false }: any) {
-  return (
-    <div className="flex flex-col gap-4 bg-[#121212] p-4 rounded-2xl border border-zinc-800/50">
-      <div className="flex items-center justify-between px-2">
-        <div className="flex items-center gap-2">
-          {icon}
-          <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-widest">{title}</h3>
-        </div>
-        <span className="text-xs bg-zinc-900 text-zinc-500 px-2 py-0.5 rounded-full border border-zinc-800">
-          {tasks.length}
-        </span>
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-4">
+        <StatsCard title="Total" value={stats.total} icon={<IconFlag size={20} />} />
+        <StatsCard title="Em Andamento" value={stats.emAndamento} icon={<IconClock size={20} />} color="var(--accent-gold)" />
+        <StatsCard title="Concluídas" value={stats.concluidas} icon={<IconCheck size={20} />} color="var(--success)" />
+        <StatsCard title="Atrasadas" value={stats.atrasadas} icon={<IconCalendar size={20} />} color="var(--error)" />
       </div>
 
-      <div className="flex flex-col gap-3 overflow-y-auto max-h-[70vh] pr-1">
-        {tasks.map((task: Task) => (
-          <TaskCard key={task.id} task={task} isPriority={isPriority} />
-        ))}
-        {tasks.length === 0 && (
-          <div className="text-center py-10 border-2 border-dashed border-zinc-900 rounded-xl">
-            <p className="text-zinc-600 text-xs italic">Nenhuma tarefa encontrada.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function TaskCard({ task, isPriority }: { task: Task, isPriority: boolean }) {
-  return (
-    <motion.div 
-      whileHover={{ y: -2 }}
-      className={`p-5 rounded-xl border group transition-all cursor-pointer bg-[#18181b] 
-        ${isPriority ? 'border-purple-500/30 hover:border-purple-500' : 'border-zinc-800 hover:border-[#EAB308]'}`}
-    >
-      <div className="flex justify-between items-start mb-3">
-        <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-tighter
-          ${task.priority === 'urgente' ? 'bg-red-500/10 text-red-500' : 'bg-zinc-800 text-zinc-400'}`}>
-          {task.priority}
-        </span>
-        <div className="flex gap-2">
-          {task.comments > 0 && (
-            <div className="flex items-center gap-1 text-zinc-500">
-              <IconMessage2 size={14} />
-              <span className="text-[10px]">{task.comments}</span>
-            </div>
-          )}
+      {/* Filtros e Pesquisa */}
+      <div className="flex gap-4">
+        <div className="flex-1 relative">
+          <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" size={18} />
+          <input
+            type="text"
+            placeholder="Pesquisar tarefas..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full h-11 pl-10 pr-4 rounded-lg bg-[var(--bg-secondary)] border border-[var(--border-primary)] text-[var(--text-primary)] outline-none focus:border-[var(--accent-gold)] transition-all"
+          />
         </div>
       </div>
 
-      <h4 className="text-white font-semibold text-sm mb-1 group-hover:text-[#EAB308] transition-colors">
-        {task.title}
-      </h4>
-      <p className="text-zinc-500 text-xs line-clamp-2 mb-4">
-        {task.description}
-      </p>
-
-      {task.isRequestedBySuperior && (
-        <div className="mb-4 p-2 rounded bg-purple-500/5 border border-purple-500/10 flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-          <span className="text-[10px] text-purple-300 font-medium italic">De: {task.requestedBy}</span>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between pt-4 border-t border-zinc-800/50">
-        <div className="flex items-center gap-2 text-zinc-400">
-          <IconFlag size={14} />
-          <span className="text-[10px] font-medium uppercase tracking-widest">{task.category}</span>
-        </div>
-        
-        <select className="bg-transparent text-[10px] text-[#EAB308] outline-none font-bold uppercase cursor-pointer hover:underline">
-          <option className="bg-[#121212]" value="pendente">Pendente</option>
-          <option className="bg-[#121212]" value="andamento">Em Curso</option>
-          <option className="bg-[#121212]" value="concluida">Finalizada</option>
-        </select>
-      </div>
-    </motion.div>
-  );
-}
-
-// --- VISTA DE SOLICITAÇÃO DE TAREFA ---
-function RequestTaskView({ onClose }: { onClose: () => void }) {
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-[#151515] border border-zinc-800 rounded-2xl p-8"
-    >
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-xl font-bold text-white flex items-center gap-3">
-          <IconSend className="text-[#EAB308]" />
-          Solicitar Tarefa para Outro Usuário
-        </h3>
-        <button onClick={onClose} className="text-zinc-500 hover:text-white">Fechar</button>
-      </div>
-
-      <form className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Responsável</label>
-            <select className="w-full h-12 px-4 rounded-lg bg-zinc-900 border border-zinc-800 text-white focus:ring-1 focus:ring-[#EAB308] outline-none">
-              <option>Ana Oliveira (Consultor)</option>
-              <option>Ricardo Silva (Operacional)</option>
-              <option>Equipe de Suporte</option>
-            </select>
-          </div>
-          
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Nível de Urgência</label>
-            <div className="flex gap-2">
-              {['Baixa', 'Média', 'Alta', 'Urgente'].map((level) => (
-                <button 
-                  key={level}
-                  type="button"
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-all
-                    ${level === 'Urgente' ? 'border-red-500/50 bg-red-500/10 text-red-500' : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700'}`}
+      {/* Kanban Board */}
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <div className="grid grid-cols-4 gap-4">
+          {Object.entries(statusColumns).map(([status, config]) => (
+            <Droppable key={status} droppableId={status}>
+              {(provided, snapshot) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className={`rounded-xl border-2 ${snapshot.isDraggingOver ? 'border-[var(--accent-gold)]' : 'border-[var(--border-primary)]'
+                    } bg-[var(--bg-secondary)] p-4 transition-all`}
                 >
-                  {level}
-                </button>
-              ))}
-            </div>
+                  {/* Column Header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-[var(--text-primary)] flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: config.color }} />
+                      {config.title}
+                    </h3>
+                    <span className="text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-tertiary)] px-2 py-1 rounded-full">
+                      {tasksByStatus[status as keyof typeof tasksByStatus].length}
+                    </span>
+                  </div>
+
+                  {/* Tasks */}
+                  <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                    {tasksByStatus[status as keyof typeof tasksByStatus].map((task, index) => (
+                      <Draggable key={task.id} draggableId={task.id} index={index}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            onClick={() => handleTaskClick(task)}
+                            className={`p-4 rounded-lg border cursor-pointer transition-all ${snapshot.isDragging
+                                ? 'border-[var(--accent-gold)] shadow-2xl rotate-2'
+                                : 'border-[var(--border-secondary)] hover:border-[var(--accent-gold)]'
+                              } bg-[var(--bg-elevated)]`}
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <h4 className="text-sm font-bold text-[var(--text-primary)] line-clamp-2 flex-1">
+                                {task.title}
+                              </h4>
+                              <span
+                                className="w-2 h-2 rounded-full shrink-0 ml-2 mt-1"
+                                style={{ backgroundColor: priorityColors[task.priority] }}
+                              />
+                            </div>
+                            <p className="text-xs text-[var(--text-secondary)] line-clamp-2 mb-3">
+                              {task.description}
+                            </p>
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-[var(--accent-gold)] flex items-center justify-center text-[9px] font-bold text-black">
+                                  {task.assignedTo.charAt(0)}
+                                </div>
+                                {task.comments.length > 0 && (
+                                  <span className="flex items-center gap-1 text-[var(--text-muted)]">
+                                    <IconMessage size={12} />
+                                    {task.comments.length}
+                                  </span>
+                                )}
+                              </div>
+                              {task.dueDate && (
+                                <span className="text-[var(--text-muted)]">
+                                  {new Date(task.dueDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                </div>
+              )}
+            </Droppable>
+          ))}
+        </div>
+      </DragDropContext>
+
+      {/* Modais */}
+      <TaskDetailsModal
+        task={selectedTask}
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+        onUpdate={handleUpdateTask}
+        onDelete={handleDeleteTask}
+        onComplete={handleCompleteTask}
+      />
+
+      <CreateTaskModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onCreate={handleCreateTask}
+      />
+    </div>
+  );
+}
+
+// Stats Card Component
+function StatsCard({ title, value, icon, color = 'var(--text-secondary)' }: any) {
+  return (
+    <div className="p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-primary)]">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-widest">
+          {title}
+        </span>
+        <div style={{ color }}>{icon}</div>
+      </div>
+      <p className="text-3xl font-bold text-[var(--text-primary)]">{value}</p>
+    </div>
+  );
+}
+
+// Create Task Modal
+function CreateTaskModal({ isOpen, onClose, onCreate }: any) {
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    assignedTo: 'Pedro Guedes',
+    priority: 'media' as Task['priority'],
+    dueDate: '',
+    tags: [] as string[],
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onCreate(formData);
+    setFormData({ title: '', description: '', assignedTo: 'Pedro Guedes', priority: 'media', dueDate: '', tags: [] });
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Criar Nova Tarefa" size="md">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-widest">
+            Título
+          </label>
+          <input
+            type="text"
+            required
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            className="w-full h-11 px-4 mt-2 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border-primary)] text-[var(--text-primary)] outline-none focus:border-[var(--accent-gold)]"
+            placeholder="Ex: Revisar propostas de leads"
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-widest">
+            Descrição
+          </label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            rows={3}
+            className="w-full p-4 mt-2 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border-primary)] text-[var(--text-primary)] outline-none focus:border-[var(--accent-gold)] resize-none"
+            placeholder="Descreva a tarefa..."
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-widest">
+              Responsável
+            </label>
+            <input
+              type="text"
+              value={formData.assignedTo}
+              onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
+              className="w-full h-11 px-4 mt-2 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border-primary)] text-[var(--text-primary)] outline-none focus:border-[var(--accent-gold)]"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-widest">
+              Prazo
+            </label>
+            <input
+              type="date"
+              value={formData.dueDate}
+              onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+              className="w-full h-11 px-4 mt-2 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border-primary)] text-[var(--text-primary)] outline-none focus:border-[var(--accent-gold)]"
+            />
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Título da Task</label>
-            <input 
-              placeholder="Ex: Resolver pendência de pagamento do cliente X"
-              className="w-full h-12 px-4 rounded-lg bg-zinc-900 border border-zinc-800 text-white focus:ring-1 focus:ring-[#EAB308] outline-none" 
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Instruções / Descrição</label>
-            <textarea 
-              rows={3}
-              placeholder="Descreva o que deve ser feito com detalhes..."
-              className="w-full p-4 rounded-lg bg-zinc-900 border border-zinc-800 text-white focus:ring-1 focus:ring-[#EAB308] outline-none resize-none" 
-            />
+        <div>
+          <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-widest mb-2 block">
+            Prioridade
+          </label>
+          <div className="grid grid-cols-4 gap-2">
+            {(['baixa', 'media', 'alta', 'urgente'] as const).map((priority) => (
+              <button
+                key={priority}
+                type="button"
+                onClick={() => setFormData({ ...formData, priority })}
+                className={`py-2 rounded-lg font-bold text-xs uppercase transition-all ${formData.priority === priority
+                    ? 'ring-2 ring-offset-2 ring-offset-[var(--bg-secondary)]'
+                    : 'opacity-50 hover:opacity-100'
+                  }`}
+                style={{
+                  backgroundColor: `${priorityColors[priority]}20`,
+                  color: priorityColors[priority],
+                  ringColor: formData.priority === priority ? priorityColors[priority] : 'transparent',
+                }}
+              >
+                {priority}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="md:col-span-2 flex justify-end">
-          <button className="px-10 py-3 bg-[#EAB308] text-black font-bold rounded-xl hover:bg-[#CA8A04] transition-all flex items-center gap-2 shadow-xl shadow-yellow-500/5">
-            Enviar Solicitação
-            <IconSend size={18} />
+        <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border-primary)]">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-6 py-2 border border-[var(--border-primary)] text-[var(--text-secondary)] rounded-lg font-bold hover:bg-[var(--bg-hover)] transition-all"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            className="px-6 py-2 bg-[var(--accent-gold)] hover:bg-[var(--accent-gold-hover)] text-black font-bold rounded-lg transition-all flex items-center gap-2"
+          >
+            <IconCheck size={18} />
+            Criar Tarefa
           </button>
         </div>
       </form>
-    </motion.div>
+    </Modal>
   );
 }
