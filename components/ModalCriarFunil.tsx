@@ -124,13 +124,13 @@ export function ModalCriarFunil({ isOpen, onClose, onSave }: ModalCriarFunilProp
                         <Step1
                             name={formData.name}
                             description={formData.description}
-                            onChange={(name, description) => setFormData({ ...formData, name, description })}
+                            onChange={(name: string, description: string) => setFormData({ ...formData, name, description })}
                         />
                     )}
                     {step === 2 && (
                         <Step2
                             stages={formData.stages}
-                            onReorder={(stages) => setFormData({ ...formData, stages })}
+                            onReorder={(stages: Stage[]) => setFormData({ ...formData, stages })}
                             onAdd={addStage}
                             onRemove={removeStage}
                             onUpdate={updateStageName}
@@ -140,8 +140,8 @@ export function ModalCriarFunil({ isOpen, onClose, onSave }: ModalCriarFunilProp
                         <Step3
                             icon={formData.icon}
                             color={formData.color}
-                            onIconChange={(icon) => setFormData({ ...formData, icon })}
-                            onColorChange={(color) => setFormData({ ...formData, color })}
+                            onIconChange={(icon: string) => setFormData({ ...formData, icon })}
+                            onColorChange={(color: string) => setFormData({ ...formData, color })}
                         />
                     )}
                 </div>
@@ -306,8 +306,8 @@ function Step3({ icon, color, onIconChange, onColorChange }: any) {
                             key={ico}
                             onClick={() => onIconChange(ico)}
                             className={`aspect-square rounded-lg text-2xl flex items-center justify-center transition-all ${icon === ico
-                                    ? 'bg-[var(--accent-gold)] scale-110'
-                                    : 'bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)]'
+                                ? 'bg-[var(--accent-gold)] scale-110'
+                                : 'bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)]'
                                 }`}
                         >
                             {ico}
@@ -327,7 +327,7 @@ function Step3({ icon, color, onIconChange, onColorChange }: any) {
                             onClick={() => onColorChange(col)}
                             className={`aspect-square rounded-lg transition-all ${color === col ? 'ring-2 ring-offset-2 ring-offset-[var(--bg-secondary)] scale-110' : ''
                                 }`}
-                            style={{ backgroundColor: col, ringColor: col }}
+                            style={{ backgroundColor: col }}
                         />
                     ))}
                 </div>

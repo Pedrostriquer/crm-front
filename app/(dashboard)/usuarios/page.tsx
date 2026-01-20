@@ -225,9 +225,13 @@ export default function UsuariosPage() {
                         // Criar novo usuário
                         const newUser: User = {
                             id: String(users.length + 1),
-                            avatar: userData.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
+                            name: userData.name || '',
+                            email: userData.email || '',
+                            role: userData.role || 'Consultor',
+                            team: userData.team || 'Vendas',
+                            status: userData.status || 'Ativo',
+                            avatar: (userData.name || '').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U',
                             joinedAt: new Date().toISOString().split('T')[0],
-                            ...userData
                         };
                         setUsers([...users, newUser]);
                     }

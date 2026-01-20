@@ -275,8 +275,8 @@ export default function TasksPage() {
                             {...provided.dragHandleProps}
                             onClick={() => handleTaskClick(task)}
                             className={`p-4 rounded-lg border cursor-pointer transition-all ${snapshot.isDragging
-                                ? 'border-[var(--accent-gold)] shadow-2xl rotate-2'
-                                : 'border-[var(--border-secondary)] hover:border-[var(--accent-gold)]'
+                              ? 'border-[var(--accent-gold)] shadow-2xl rotate-2'
+                              : 'border-[var(--border-secondary)] hover:border-[var(--accent-gold)]'
                               } bg-[var(--bg-elevated)]`}
                           >
                             <div className="flex items-start justify-between mb-2">
@@ -440,13 +440,12 @@ function CreateTaskModal({ isOpen, onClose, onCreate }: any) {
                 type="button"
                 onClick={() => setFormData({ ...formData, priority })}
                 className={`py-2 rounded-lg font-bold text-xs uppercase transition-all ${formData.priority === priority
-                    ? 'ring-2 ring-offset-2 ring-offset-[var(--bg-secondary)]'
-                    : 'opacity-50 hover:opacity-100'
+                  ? 'ring-2 ring-offset-2 ring-offset-[var(--bg-secondary)]'
+                  : 'opacity-50 hover:opacity-100'
                   }`}
                 style={{
                   backgroundColor: `${priorityColors[priority]}20`,
                   color: priorityColors[priority],
-                  ringColor: formData.priority === priority ? priorityColors[priority] : 'transparent',
                 }}
               >
                 {priority}

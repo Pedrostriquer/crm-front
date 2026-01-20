@@ -156,7 +156,9 @@ export default function EquipesPage() {
                     } else {
                         const newTeam: Team = {
                             id: `t${teams.length + 1}`,
-                            ...teamData,
+                            name: teamData.name || '',
+                            description: teamData.description || '',
+                            color: teamData.color || '#EAB308',
                             members: [],
                             createdAt: new Date().toISOString().split('T')[0],
                         };
@@ -342,10 +344,10 @@ function TeamModal({
                                 type="button"
                                 onClick={() => setFormData({ ...formData, color: option.value })}
                                 className={`aspect-square rounded-lg transition-all ${formData.color === option.value
-                                        ? 'ring-2 ring-offset-2 ring-offset-[var(--bg-secondary)] scale-110'
-                                        : 'hover:scale-105'
+                                    ? 'ring-2 ring-offset-2 ring-offset-[var(--bg-secondary)] scale-110'
+                                    : 'hover:scale-105'
                                     }`}
-                                style={{ backgroundColor: option.value, ringColor: option.value }}
+                                style={{ backgroundColor: option.value }}
                                 title={option.label}
                             />
                         ))}
