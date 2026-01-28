@@ -31,7 +31,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       icon: <IconTarget className="text-[var(--text-secondary)] group-hover:text-[var(--accent-gold)] h-5 w-5 shrink-0 transition-colors" />,
     },
     {
-      label: "Funis de Venda",
+      label: "Funis",
       href: "/funis",
       icon: <IconLayoutColumns className="text-[var(--text-secondary)] group-hover:text-[var(--accent-gold)] h-5 w-5 shrink-0 transition-colors" />,
     },
